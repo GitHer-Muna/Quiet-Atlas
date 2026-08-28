@@ -12,19 +12,20 @@ import common  # noqa: E402
 
 class CommonServiceTests(unittest.TestCase):
     def test_place_result_is_normalized(self):
-        with patch.dict(os.environ, {"GEONAMES_USERNAME": "test-user"}), patch.object(
+        with patch.dict(os.environ, {}, clear=False), patch.object(
             common,
             "http_get_json",
             return_value={
-                "geonames": [
+                "results": [
                     {
                         "name": "Aldea",
-                        "countryName": "Exampleland",
-                        "countryCode": "EX",
-                        "lat": "41.25",
-                        "lng": "-7.5",
+                        "country": "Exampleland",
+                        "country_code": "EX",
+                        "latitude": 41.25,
+                        "longitude": -7.5,
                         "population": 412,
-                        "geonameId": 7,
+                        "timezone": "Europe/Example",
+                        "id": 7,
                     }
                 ]
             },
@@ -34,7 +35,7 @@ class CommonServiceTests(unittest.TestCase):
         self.assertEqual(place["country"], "Exampleland")
         self.assertEqual(place["lat"], 41.25)
         self.assertEqual(place["population"], 412)
-        self.assertIn("searchJSON", get_json.call_args.args[0])
+        self.assertIn("geocoding-api.open-meteo.com", get_json.call_args.args[0])
 
     def test_weather_snapshot_keeps_ground_truth_fields(self):
         with patch.object(

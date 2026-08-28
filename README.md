@@ -10,7 +10,7 @@ Visitors can also request an entry for a named place. When the place is found an
 EventBridge Scheduler
         |
         v
-Daily Keeper Lambda ---- GeoNames ---- Open-Meteo
+Daily Keeper Lambda ---- Open-Meteo Geocoding ---- Open-Meteo Weather
         |
         +---------------- Bedrock
         |
@@ -20,7 +20,7 @@ AtlasEntries DynamoDB <---- List Entries Lambda <---- GET /entries
 Browser -> S3 static website -> HTTP API
                                   |
                                   +--> On-Demand Keeper Lambda
-                                          |  GeoNames -> Open-Meteo -> Bedrock
+                                          |  Open-Meteo Geocoding -> Weather -> Bedrock
                                           |  RequestThrottle DynamoDB
                                           +--> AtlasEntries DynamoDB
 ```
@@ -41,11 +41,10 @@ Lambda permissions are limited to the required DynamoDB tables and the Bedrock m
 - AWS CLI configured for the target account and region.
 - AWS SAM CLI.
 - Python 3.12.
-- A free GeoNames username from <https://www.geonames.org/login>.
 - Bedrock model access enabled in the deployment region and account.
 - An enabled Bedrock foundation-model ARN or cross-region inference-profile ARN. Some newer models require an inference profile rather than a bare model ID.
 
-The examples use `us-east-1`. Choose one region deliberately and keep the Lambda, DynamoDB, API, and Bedrock access aligned with that choice.
+Open-Meteo provides both geocoding and weather without an API key or separate account. The examples use `us-east-1`; choose one region deliberately and keep the Lambda, DynamoDB, API, and Bedrock access aligned with that choice.
 
 ## Deploy
 
@@ -57,7 +56,6 @@ sam deploy --guided \
   --stack-name quiet-atlas \
   --region us-east-1 \
   --parameter-overrides \
-    GeoNamesUsername=YOUR_GEONAMES_USERNAME \
     BedrockModelArn=YOUR_ENABLED_BEDROCK_MODEL_OR_PROFILE_ARN
 ```
 
@@ -70,7 +68,7 @@ chmod +x scripts/deploy_frontend.sh
 AWS_REGION=us-east-1 scripts/deploy_frontend.sh quiet-atlas
 ```
 
-The stack outputs include the API URL, frontend bucket name, and S3 website URL. The deployment script writes only the public API URL into the frontend configuration. It does not place the GeoNames username, AWS credentials, or Bedrock configuration in browser code.
+The stack outputs include the API URL, frontend bucket name, and S3 website URL. The deployment script writes only the public API URL into the frontend configuration. It does not place AWS credentials or Bedrock configuration in browser code.
 
 ## Test the deployed application
 
@@ -122,7 +120,7 @@ The page displays a connection message until its generated API configuration con
 
 ## Operational notes
 
-- GeoNames and Open-Meteo requests retry once before returning a friendly application error.
+- Open-Meteo geocoding and weather requests retry once before returning a friendly application error.
 - The daily function logs expected failures and does not write a fabricated entry when a provider or model is unavailable.
 - The on-demand limit uses a salted SHA-256 hash of API Gateway's source IP and the UTC date. The raw IP is never stored. DynamoDB TTL removes old counters after two days.
 - The S3 bucket is public because it serves the simple static website. Do not place secrets or private files in it. A production deployment should put the bucket behind CloudFront and keep it private.

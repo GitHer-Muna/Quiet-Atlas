@@ -3,10 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: The Quiet Atlas - a grounded, growing almanac of small places.
 
 Parameters:
-  GeoNamesUsername:
-    Type: String
-    NoEcho: true
-    Description: Free GeoNames username used by the keeper functions.
   BedrockModelArn:
     Type: String
     Description: ARN of an enabled Bedrock model or cross-region inference profile.
@@ -32,7 +28,6 @@ Globals:
       Variables:
         ATLAS_TABLE_NAME: !Ref AtlasEntriesTable
         THROTTLE_TABLE_NAME: !Ref RequestThrottleTable
-        GEONAMES_USERNAME: !Ref GeoNamesUsername
         BEDROCK_MODEL_ARN: !Ref BedrockModelArn
         THROTTLE_LIMIT: !Ref ThrottleLimit
         LOG_LEVEL: INFO

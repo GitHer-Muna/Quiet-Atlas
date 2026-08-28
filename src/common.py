@@ -96,68 +96,51 @@ def http_get_json(url: str, opener: Callable[..., Any] | None = None) -> dict[st
     raise AtlasError("an outside source did not answer") from last_error
 
 
-def _require_geonames_username() -> str:
-    username = os.getenv("GEONAMES_USERNAME", "").strip()
-    if not username:
-        raise AtlasError("the atlas has no mapkeeper username configured")
-    return username
-
-
-def _place_from_geonames(item: dict[str, Any]) -> dict[str, Any]:
+def _place_from_geocoder(item: dict[str, Any]) -> dict[str, Any]:
     try:
         return {
             "placeName": str(item["name"]).strip(),
-            "country": str(item.get("countryName") or item.get("countryCode") or "Unknown").strip(),
-            "lat": float(item["lat"]),
-            "lon": float(item["lng"]),
+            "country": str(item.get("country") or item.get("country_code") or "Unknown").strip(),
+            "lat": float(item["latitude"]),
+            "lon": float(item["longitude"]),
             "population": int(item.get("population") or 0),
-            "timezone": str((item.get("timezone") or {}).get("timeZoneId") or "UTC"),
-            "geonameId": str(item.get("geonameId") or ""),
+            "timezone": str(item.get("timezone") or "UTC"),
+            "geonameId": str(item.get("id") or ""),
         }
     except (KeyError, TypeError, ValueError) as error:
         raise AtlasError("the map returned an unreadable place") from error
 
 
 def search_place(place_name: str) -> dict[str, Any]:
-    """Resolve a visitor's place name, preferring a populated place."""
+    """Resolve a visitor's place name using Open-Meteo's no-key geocoder."""
     cleaned = " ".join(place_name.split())
     if not 2 <= len(cleaned) <= 120:
         raise AtlasError("please give the atlas a place name between 2 and 120 characters")
     query = urllib.parse.urlencode(
-        {
-            "q": cleaned,
-            "maxRows": 10,
-            "type": "json",
-            "featureClass": "P",
-            "orderby": "relevance",
-            "username": _require_geonames_username(),
-        }
+        {"name": cleaned, "count": 10, "language": "en", "format": "json"}
     )
-    result = http_get_json(f"https://api.geonames.org/searchJSON?{query}")
-    matches = result.get("geonames") or []
+    result = http_get_json(f"https://geocoding-api.open-meteo.com/v1/search?{query}")
+    matches = result.get("results") or []
     if not matches:
         raise AtlasError("the atlas could not find that place; try a town and country")
-    return _place_from_geonames(matches[0])
+    return _place_from_geocoder(matches[0])
 
 
 def choose_small_place() -> dict[str, Any]:
-    """Choose a random small populated place from GeoNames search results."""
-    # GeoNames search is deliberately broad here; filtering population locally keeps
-    # the selection transparent and avoids depending on an obscure provider endpoint.
+    """Choose a random small populated place from Open-Meteo geocoding results."""
     query = urllib.parse.urlencode(
         {
-            "q": random.choice(["a", "e", "i", "o", "u"]),
-            "maxRows": 100,
-            "type": "json",
-            "featureClass": "P",
-            "username": _require_geonames_username(),
+            "name": random.choice(["San", "Santa", "Nova", "Klein", "Mont", "Lake", "Saint", "Val", "Villa", "Port"]),
+            "count": 100,
+            "language": "en",
+            "format": "json",
         }
     )
-    result = http_get_json(f"https://api.geonames.org/searchJSON?{query}")
-    candidates = [item for item in (result.get("geonames") or []) if 0 < int(item.get("population") or 0) < 5000]
+    result = http_get_json(f"https://geocoding-api.open-meteo.com/v1/search?{query}")
+    candidates = [item for item in (result.get("results") or []) if 0 < int(item.get("population") or 0) < 5000]
     if not candidates:
         raise AtlasError("the atlas could not find a small town today")
-    return _place_from_geonames(random.choice(candidates))
+    return _place_from_geocoder(random.choice(candidates))
 
 
 def get_weather(place: dict[str, Any]) -> dict[str, Any]:
