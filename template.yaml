@@ -9,14 +9,19 @@ Parameters:
     AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]+:[0-9]{0,12}:(inference-profile|foundation-model)/.+$'
   BedrockFoundationModelArn:
     Type: String
-    Default: arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-premier-v1:0
+    Default: arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0
     Description: Primary foundation-model ARN authorized for the selected inference profile.
-    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]+:[0-9]{0,12}:foundation-model/.+$'
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]*:[0-9]{0,12}:foundation-model/.+$'
   BedrockSecondaryFoundationModelArn:
     Type: String
-    Default: arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-premier-v1:0
+    Default: arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0
     Description: Secondary regional foundation-model ARN used by the selected cross-region profile.
-    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]+:[0-9]{0,12}:foundation-model/.+$'
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]*:[0-9]{0,12}:foundation-model/.+$'
+  BedrockTertiaryFoundationModelArn:
+    Type: String
+    Default: arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0
+    Description: Tertiary regional foundation-model ARN used by the selected cross-region profile.
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]*:[0-9]{0,12}:foundation-model/.+$'
   DailyScheduleExpression:
     Type: String
     Default: cron(0 06 * * ? *)
@@ -117,6 +122,8 @@ Resources:
                 - !Ref BedrockModelArn
                 - !Ref BedrockFoundationModelArn
                 - !Ref BedrockSecondaryFoundationModelArn
+                - !Ref BedrockTertiaryFoundationModelArn
+                - !Ref BedrockTertiaryFoundationModelArn
       Events:
         DailySchedule:
           Type: ScheduleV2
@@ -150,6 +157,8 @@ Resources:
                 - !Ref BedrockModelArn
                 - !Ref BedrockFoundationModelArn
                 - !Ref BedrockSecondaryFoundationModelArn
+                - !Ref BedrockTertiaryFoundationModelArn
+                - !Ref BedrockTertiaryFoundationModelArn
       Events:
         RequestEntry:
           Type: HttpApi
