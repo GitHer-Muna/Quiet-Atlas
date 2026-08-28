@@ -87,6 +87,11 @@ class CommonServiceTests(unittest.TestCase):
                 )
         self.assertEqual(bedrock.converse.call_count, 2)
 
+    def test_dynamodb_safe_converts_nested_float_values(self):
+        safe = common._dynamodb_safe({"lat": 41.25, "weather": [12.4, {"wind": 9.2}]})
+        self.assertEqual(safe["lat"], common.Decimal("41.25"))
+        self.assertEqual(safe["weather"][1]["wind"], common.Decimal("9.2"))
+
     def test_throttle_uses_hashed_ip_and_atomic_limit_condition(self):
         table = MagicMock()
         with patch.dict(os.environ, {"THROTTLE_TABLE_NAME": "throttle", "THROTTLE_LIMIT": "5", "THROTTLE_HASH_SALT": "test-salt"}), patch(

@@ -13,6 +13,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Callable
 
 try:
@@ -234,8 +235,18 @@ def make_entry(place: dict[str, Any], weather: dict[str, Any], keeper_entry: str
     }
 
 
+def _dynamodb_safe(value: Any) -> Any:
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {key: _dynamodb_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_dynamodb_safe(item) for item in value]
+    return value
+
+
 def store_entry(entry: dict[str, Any]) -> None:
-    boto3.resource("dynamodb").Table(os.environ["ATLAS_TABLE_NAME"]).put_item(Item=entry)
+    boto3.resource("dynamodb").Table(os.environ["ATLAS_TABLE_NAME"]).put_item(Item=_dynamodb_safe(entry))
 
 
 def request_ip(event: dict[str, Any]) -> str:
