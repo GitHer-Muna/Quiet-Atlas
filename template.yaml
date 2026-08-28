@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: The Quiet Atlas - a grounded, growing almanac of small places.
+
+Parameters:
+  GeoNamesUsername:
+    Type: String
+    NoEcho: true
+    Description: Free GeoNames username used by the keeper functions.
+  BedrockModelArn:
+    Type: String
+    Description: ARN of an enabled Bedrock model or cross-region inference profile.
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:bedrock:[a-z0-9-]+:[0-9]{0,12}:(inference-profile|foundation-model)/.+$'
+  DailyScheduleExpression:
+    Type: String
+    Default: cron(0 06 * * ? *)
+    Description: UTC schedule for the daily keeper.
+  ThrottleLimit:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 50
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - arm64
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        ATLAS_TABLE_NAME: !Ref AtlasEntriesTable
+        THROTTLE_TABLE_NAME: !Ref RequestThrottleTable
+        GEONAMES_USERNAME: !Ref GeoNamesUsername
+        BEDROCK_MODEL_ARN: !Ref BedrockModelArn
+        THROTTLE_LIMIT: !Ref ThrottleLimit
+        LOG_LEVEL: INFO
+
+Resources:
+  AtlasEntriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub quiet-atlas-entries-${AWS::StackName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: entryId
+          AttributeType: S
+        - AttributeName: entryType
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: entryId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: entryType-createdAt-index
+          KeySchema:
+            - AttributeName: entryType
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  RequestThrottleTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub quiet-atlas-throttle-${AWS::StackName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: throttleKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: throttleKey
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  AtlasHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  DailyKeeperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub quiet-atlas-daily-keeper-${AWS::StackName}
+      CodeUri: src/
+      Handler: daily_keeper.handler
+      Description: Adopts a small real place and adds its daily almanac entry.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt AtlasEntriesTable.Arn
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Ref BedrockModelArn
+      Events:
+        DailySchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref DailyScheduleExpression
+            ScheduleExpressionTimezone: UTC
+            State: ENABLED
+            Description: Add one new small place to The Quiet Atlas each day.
+
+  OnDemandKeeperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub quiet-atlas-on-demand-keeper-${AWS::StackName}
+      CodeUri: src/
+      Handler: ondemand_keeper.handler
+      Description: Creates an atlas entry for a visitor-requested place.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt AtlasEntriesTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource: !GetAtt RequestThrottleTable.Arn
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Ref BedrockModelArn
+      Events:
+        RequestEntry:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AtlasHttpApi
+            Path: /entries/request
+            Method: POST
+
+  ListEntriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub quiet-atlas-list-entries-${AWS::StackName}
+      CodeUri: src/
+      Handler: list_entries.handler
+      Description: Returns newest atlas entries with cursor pagination.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource:
+                - !GetAtt AtlasEntriesTable.Arn
+                - !Sub ${AtlasEntriesTable.Arn}/index/entryType-createdAt-index
+      Events:
+        ListEntries:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AtlasHttpApi
+            Path: /entries
+            Method: GET
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+
+Outputs:
+  ApiUrl:
+    Description: HTTP API base URL.
+    Value: !Sub https://${AtlasHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  FrontendBucketName:
+    Description: S3 bucket used to host the static scrapbook.
+    Value: !Ref FrontendBucket
+  FrontendWebsiteUrl:
+    Description: S3 website endpoint for the static scrapbook.
+    Value: !GetAtt FrontendBucket.WebsiteURL
+  AtlasEntriesTableName:
+    Description: DynamoDB table containing generated entries.
+    Value: !Ref AtlasEntriesTable

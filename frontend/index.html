@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3ead7">
+  <meta name="description" content="The Quiet Atlas — small real places, carefully observed.">
+  <title>The Quiet Atlas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="paper-grain" aria-hidden="true"></div>
+  <header class="masthead shell">
+    <div class="stamp">EST. 2026<br><span>FIELD OFFICE</span></div>
+    <div>
+      <p class="eyebrow">A living almanac of small places</p>
+      <h1>The Quiet Atlas</h1>
+    </div>
+    <p class="edition">Vol. 01<br>Open daily</p>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="intro-title">
+      <div>
+        <p class="eyebrow">Notes from the keeper's desk</p>
+        <h2 id="intro-title">Somewhere quiet,<br><em>the day is beginning.</em></h2>
+      </div>
+      <p class="intro-copy">Each day, the atlas chooses a real little town, checks the sky above it, and leaves a new page in the ledger. The facts are true. The voice belongs to the keeper.</p>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <section id="featured" class="featured" aria-labelledby="featured-heading"></section>
+
+    <section class="ask-panel" aria-labelledby="ask-heading">
+      <div>
+        <p class="eyebrow">A question for the atlas</p>
+        <h2 id="ask-heading">Ask about a place.</h2>
+        <p>Give the keeper a town, village, or corner of the map. Five pages per day, per visitor.</p>
+      </div>
+      <form id="ask-form">
+        <label for="place-name">Place name</label>
+        <div class="form-row">
+          <input id="place-name" name="placeName" type="text" maxlength="120" placeholder="e.g. Shiroka Laka, Bulgaria" autocomplete="off" required>
+          <button id="ask-button" type="submit">Open a page <span aria-hidden="true">→</span></button>
+        </div>
+        <p id="form-message" class="form-message" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="ledger" aria-labelledby="ledger-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">The growing ledger</p>
+          <h2 id="ledger-heading">Recent pages</h2>
+        </div>
+        <span class="rule-mark" aria-hidden="true">✳</span>
+      </div>
+      <div id="entries" class="entry-grid"></div>
+      <button id="more-button" class="more-button" type="button" hidden>Older pages <span aria-hidden="true">↓</span></button>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    <span>THE QUIET ATLAS</span>
+    <span>Weather &amp; geography, then a little fiction.</span>
+  </footer>
+</body>
+</html>

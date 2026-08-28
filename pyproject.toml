@@ -1,0 +1,9 @@
+[project]
+name = "quiet-atlas"
+version = "0.1.0"
+description = "A grounded, growing almanac of small places"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
